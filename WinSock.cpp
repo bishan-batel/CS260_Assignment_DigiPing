@@ -97,6 +97,25 @@ auto Socket::send(const Bytes data, const i32 flags) const -> void {
   }
 }
 
+auto Socket::sendto(
+  const Bytes data,
+  const sockaddr& addr,
+  usize addr_len,
+  const i32 flags
+) const -> void {
+  const errno_t error{::sendto(
+    handle,
+    reinterpret_cast<const char*>(data.data()),
+    static_cast<i32>(data.size_bytes()),
+    flags,
+    &addr,
+    addr_len
+  )};
+  if (error == SOCKET_ERROR) {
+    throw SocketError{"Failed to send from socket"};
+  }
+}
+
 auto Socket::receive(const std::span<char> buffer,
                      const i32 flags) const -> Bytes {
   return receive(std::as_writable_bytes(buffer), flags);

@@ -115,14 +115,16 @@ static uint8_t calculate_ip_header_size(char* buf) {
       &from_len
     );
 
-    if (out_bytes_received == SOCKET_ERROR) {
-      throw SocketError{"Failure to wait to reply"};
-    }
+    if (out_bytes_received <= 0) {
+      if (WSAGetLastError() == WSAEWOULDBLOCK) {
+        // No response? Otherwise sleep for a bit...
+        Sleep(10);
+        continue;
+      }
 
-    if (WSAGetLastError() == WSAEWOULDBLOCK) {
-      // No response? Otherwise sleep for a bit...
-      Sleep(10);
-      continue;
+      if (out_bytes_received < 0) {
+        throw SocketError{"Failure to wait to reply"};
+      }
     }
 
     out_ttl = static_cast<uint8_t>(buffer[8]);
@@ -206,11 +208,18 @@ int main_wrapped(const int argc, const char* argv[]) {
 
   while (g_running) {
     IcmpPacket packet;
-    fill_icmp_packet(packet, pid, sequence++);
+    fill_icmp_packet(packet, pid, sequence);
+    sequence++;
+
     TimestampMs start_time = GetTickCount64();
 
     // TODO: send our packet to the destination on our NON-BLOCKING socket
-    socket.send(std::as_writable_bytes(std::span{&packet, 1}), 0);
+    socket.sendto(
+      std::as_writable_bytes(std::span{&packet, 1}),
+      reinterpret_cast<const sockaddr&>(dest_addr),
+      from_len,
+      0
+    );
 
     // TODO get the reply, if any:
     int data_bytes_received = 0;
@@ -234,12 +243,24 @@ int main_wrapped(const int argc, const char* argv[]) {
     else if (reply->type == ICMP_TYPE_ECHOREPLY && ntohs(reply->id) == pid) {
       TimestampMs end_time = GetTickCount64();
 
-      const auto hostname = argv[1];
       //TODO: print out the hostname returned by the response (NOT the one we sent to!)
-      
-      /*
-      TODO:
-      */
+
+      char hostname[NI_MAXHOST]{};
+
+      errno_t error = getnameinfo(
+        reinterpret_cast<struct sockaddr*>(&dest_addr),
+        from_len,
+        hostname,
+        NI_MAXHOST,
+        nullptr,
+        0,
+        NI_NAMEREQD
+      );
+
+      if (error != 0) {
+        strcpy_s(hostname, sizeof(hostname), argv[1]);
+      }
+
       std::cout << "Reply from " << hostname
         << ": bytes=" << data_bytes_received
         << " time=" << end_time - start_time << "ms" <<

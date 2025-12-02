@@ -185,6 +185,13 @@ public:
    */
   auto send(const Bytes data, const i32 flags = 0) const -> void;
 
+  auto sendto(
+    const Bytes data,
+    const sockaddr& addr,
+    usize addr_len,
+    const i32 flags = 0
+    ) const -> void;
+
   /**
    * Received bytes to a buffer, returns a span of the received data.
    */
