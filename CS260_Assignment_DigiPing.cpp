@@ -127,7 +127,10 @@ static uint8_t calculate_ip_header_size(char* buf) {
       }
     }
 
-    out_ttl = static_cast<uint8_t>(buffer[8]);
+    if (out_bytes_received == 0) {
+      Sleep(10);
+      continue;
+    }
 
     // TODO: On Success:
     // since this is a RAW socket, we get the entire contents of the packet, 
@@ -136,12 +139,14 @@ static uint8_t calculate_ip_header_size(char* buf) {
     // ICMP packet. A little bit of math will tell you how many bytes of data (within that icmp response)
     // were returned.
 
+    out_ttl = static_cast<uint8_t>(buffer[8]);
     const size_t ip_header_len_bytes{calculate_ip_header_size(buffer.data())};
 
-    if (out_bytes_received < ip_header_len_bytes + sizeof(IcmpPacket)) {
-      Sleep(10);
-      continue;
-    }
+    const int total_length = buffer[2] << 8 | buffer[3];
+
+    out_bytes_received = static_cast<int>(
+      total_length - ip_header_len_bytes - (sizeof(IcmpPacket) - PACKET_SIZE)
+    );
 
     // Point to the start of the ICMP packet data within the buffer
     // A little bit of math will tell you how many bytes of data (within that icmp response) were returned.
