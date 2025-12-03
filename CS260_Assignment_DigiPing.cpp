@@ -267,6 +267,11 @@ int main_wrapped(const int argc, const char* argv[]) {
         " ttl=" << static_cast<int>(ttl) << std::endl;
     } else {
       // TODO: handle other icmp message types: print out the type and code received
+      println("Unknown ICMP Message, Type: ",
+              reply->type,
+              ", Code: ",
+              reply->code
+      );
     }
     // wait a second before sending the next ping
     Sleep(1000);
